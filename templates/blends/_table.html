@@ -1,0 +1,47 @@
+{% if tickets %}
+<table class="data">
+  <thead>
+    <tr>
+      <th>出库日</th>
+      <th>目标品种名</th>
+      <th>出库千克</th>
+      <th>明细槽位</th>
+      <th>计入合计(kg)</th>
+      <th>开单人</th>
+      <th>状态</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in tickets %}
+    <tr>
+      <td>{{ t.unloadDate|date:"Y-m-d" }}</td>
+      <td>{{ t.targetCultivar }}</td>
+      <td>{{ t.outKg }}</td>
+      <td>
+        {% for line in t.lines.all %}
+          {{ line.trough.garden.name }}/{{ line.trough.troughCode }}（{{ line.countKg }}kg）{% if not forloop.last %}、{% endif %}
+        {% endfor %}
+      </td>
+      <td>{{ t.line_kg|default:"0" }}</td>
+      <td>{{ t.openedBy.username }}</td>
+      <td>
+        {% if t.closedAt %}
+          <span class="badge badge-closed">已结案 {{ t.closedAt|date:"m-d H:i" }}</span>
+        {% else %}
+          <span class="badge badge-ready">未结案</span>
+        {% endif %}
+      </td>
+      <td class="actions">
+        <a class="btn btn-sm btn-secondary" href="{% url 'blend_detail' t.pk %}">查看</a>
+        {% if not t.closedAt and user.is_superuser %}
+        <a class="btn btn-sm btn-danger" href="{% url 'blend_close' t.pk %}">结案</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">暂无拼配下槽单。</p>
+{% endif %}

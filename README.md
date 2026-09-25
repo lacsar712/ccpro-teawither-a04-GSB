@@ -53,8 +53,18 @@ python manage.py runserver 0.0.0.0:4100
 1. **Garden（茶园）**：`name`、`altitudeBand`、`notes`
 2. **Trough（萎凋槽）**：归属茶园、`troughCode`、`cultivar`、`loadKg`、状态 `loading|withering|ready`；同一茶园内槽位编号唯一
 3. **WitherBatch（萎凋批次）**：归属槽位、`startedAt`、`targetMoisture`、`actualMoisture`（可空）、`rollGrade`
+4. **BlendUnloadTicket（拼配下槽单）**：`unloadDate`（出库日）、`targetCultivar`（目标品种名）、`outKg`（出库千克）、`openedBy`（开单人）、`closedAt`（结案时刻，可空）
+5. **BlendUnloadLine（下槽明细行）**：所属下槽单、槽位、`countKg`（计入千克）；一张单挂多条可下槽槽位
 
-**业务规则**：将槽位状态设为 `ready`（可下槽）时，若最新批次的 `actualMoisture` 为空或大于 40，抛出中文 `ValidationError`。
+**业务规则**：
+
+- 将槽位状态设为 `ready`（可下槽）时，若最新批次的 `actualMoisture` 为空或大于 40，抛出中文 `ValidationError`。
+- 开拼配下槽单时，每个明细槽必须已是「可下槽」，否则拒绝。
+- 明细行计入千克之和必须与出库千克**完全相等（误差为 0）**，否则拒绝。
+- 同一槽在有未结案拼配单时，不能再挂入别的未结案单。
+- 结案仅主管（超级用户）可操作；**结案后相关槽位禁止再新建萎凋批次**，单据未结案时相关槽位仍可按原规则修改批次。
+
+种子数据含两个「可下槽」槽（B-02、A-03），可直接拼入同一张下槽单。
 
 ## 种子数据
 

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}结案拼配下槽单{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>结案拼配下槽单 #{{ ticket.pk }}</h1>
+</div>
+<div class="card">
+  <p>
+    确认结案「{{ ticket }}」？结案后该单涉及的
+    {% for line in ticket.lines.all %}{{ line.trough }}{% if not forloop.last %}、{% endif %}{% endfor %}
+    槽位<strong>不得再新建萎凋批次</strong>，且操作不可撤销。
+  </p>
+  <form method="post" class="actions">
+    {% csrf_token %}
+    <button class="btn btn-danger" type="submit">确认结案</button>
+    <a class="btn btn-secondary" href="{% url 'blend_detail' ticket.pk %}">取消</a>
+  </form>
+</div>
+{% endblock %}

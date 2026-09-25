@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}拼配下槽单 #{{ ticket.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>拼配下槽单 #{{ ticket.pk }}</h1>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{% url 'blend_list' %}">返回列表</a>
+    {% if not ticket.closedAt and user.is_superuser %}
+    <a class="btn btn-danger" href="{% url 'blend_close' ticket.pk %}">结案</a>
+    {% endif %}
+  </div>
+</div>
+<div class="card">
+  <table class="data">
+    <tr><th>出库日</th><td>{{ ticket.unloadDate|date:"Y-m-d" }}</td></tr>
+    <tr><th>目标品种名</th><td>{{ ticket.targetCultivar }}</td></tr>
+    <tr><th>出库千克</th><td>{{ ticket.outKg }} kg</td></tr>
+    <tr><th>开单人</th><td>{{ ticket.openedBy.username }}</td></tr>
+    <tr><th>开单时刻</th><td>{{ ticket.openedAt|date:"Y-m-d H:i" }}</td></tr>
+    <tr>
+      <th>状态</th>
+      <td>
+        {% if ticket.closedAt %}
+          <span class="badge badge-closed">已结案 {{ ticket.closedAt|date:"Y-m-d H:i" }}</span>
+        {% else %}
+          <span class="badge badge-ready">未结案</span>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+</div>
+<div class="card" style="margin-top:1rem">
+  <h3 style="margin-top:0">下槽明细</h3>
+  <table class="data">
+    <thead>
+      <tr><th>茶园</th><th>槽位</th><th>品种</th><th>装叶量(kg)</th><th>计入千克</th></tr>
+    </thead>
+    <tbody>
+      {% for line in ticket.lines.all %}
+      <tr>
+        <td>{{ line.trough.garden.name }}</td>
+        <td>{{ line.trough.troughCode }}</td>
+        <td>{{ line.trough.cultivar }}</td>
+        <td>{{ line.trough.loadKg }}</td>
+        <td>{{ line.countKg }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><th colspan="4">计入合计</th><th>{{ ticket.line_kg_sum }} kg（出库 {{ ticket.outKg }} kg）</th></tr>
+    </tfoot>
+  </table>
+</div>
+{% if ticket.closedAt %}
+<p class="muted" style="margin-top:1rem">本单已结案：上述槽位不得再新建萎凋批次；未结案单据涉及的槽位仍可按原规则修改批次。</p>
+{% else %}
+<p class="muted" style="margin-top:1rem">本单未结案：相关槽位仍可按原规则修改批次；结案仅主管可操作，结案后这些槽位禁止再新建萎凋批次。</p>
+{% endif %}
+{% endblock %}

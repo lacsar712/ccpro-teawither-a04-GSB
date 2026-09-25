@@ -6,6 +6,46 @@ from django.utils import timezone
 from .models import Garden, Trough, WitherBatch
 
 
+def _ensure_two_ready_troughs():
+    """旧快照补齐：保证至少有两个「可下槽」槽可用于拼配。"""
+    now = timezone.now()
+    ready = list(
+        Trough.objects.filter(status=Trough.STATUS_READY).order_by("id")[:2]
+    )
+    if len(ready) >= 2:
+        return
+
+    garden = Garden.objects.order_by("id").first()
+    if garden is None:
+        return
+
+    existing_codes = set(
+        Trough.objects.filter(garden=garden).values_list("troughCode", flat=True)
+    )
+    code = "A-03"
+    suffix = 3
+    while code in existing_codes:
+        suffix += 1
+        code = f"A-{suffix:02d}"
+
+    trough = Trough.objects.create(
+        garden=garden,
+        troughCode=code,
+        cultivar="福鼎大白",
+        loadKg=Decimal("130.00"),
+        status=Trough.STATUS_WITHERING,
+    )
+    WitherBatch.objects.create(
+        trough=trough,
+        startedAt=now - timezone.timedelta(hours=20),
+        targetMoisture=Decimal("39.00"),
+        actualMoisture=Decimal("38.60"),
+        rollGrade="一级",
+    )
+    trough.status = Trough.STATUS_READY
+    trough.save()
+
+
 def ensure_seed_data():
     """Idempotent seed: users + sample gardens/troughs/batches."""
     User = get_user_model()
@@ -17,6 +57,7 @@ def ensure_seed_data():
         User.objects.create_user("witherer", "witherer@teawither.local", "123456")
 
     if Garden.objects.exists():
+        _ensure_two_ready_troughs()
         return
 
     g1 = Garden.objects.create(
@@ -92,3 +133,21 @@ def ensure_seed_data():
     )
     t4.status = Trough.STATUS_READY
     t4.save()
+
+    # Second ready trough so the two slots can be blended on one 拼配下槽单.
+    t5 = Trough.objects.create(
+        garden=g1,
+        troughCode="A-03",
+        cultivar="福鼎大白",
+        loadKg=Decimal("130.00"),
+        status=Trough.STATUS_WITHERING,
+    )
+    WitherBatch.objects.create(
+        trough=t5,
+        startedAt=now - timezone.timedelta(hours=20),
+        targetMoisture=Decimal("39.00"),
+        actualMoisture=Decimal("38.60"),
+        rollGrade="一级",
+    )
+    t5.status = Trough.STATUS_READY
+    t5.save()

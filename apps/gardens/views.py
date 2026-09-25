@@ -1,19 +1,30 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
+from django.db.models import Sum
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views.generic import (
     CreateView,
     DeleteView,
+    DetailView,
     ListView,
     UpdateView,
 )
 
-from .forms import GardenForm, TroughForm, WitherBatchForm
-from .models import Garden, Trough, WitherBatch
+from .forms import (
+    BlendLineFormSet,
+    BlendTicketForm,
+    GardenForm,
+    TroughForm,
+    WitherBatchForm,
+    validate_and_save_blend,
+)
+from .models import BlendUnloadTicket, Garden, Trough, WitherBatch
 
 
 def _wants_htmx(request):
@@ -32,6 +43,9 @@ def home(request):
         ).count(),
         "loading_count": Trough.objects.filter(
             status=Trough.STATUS_LOADING
+        ).count(),
+        "open_blend_count": BlendUnloadTicket.objects.filter(
+            closedAt__isnull=True
         ).count(),
     }
     return render(request, "home.html", context)
@@ -200,3 +214,82 @@ class BatchDeleteView(LoginRequiredMixin, DeleteView):
     def form_valid(self, form):
         messages.success(self.request, "萎凋批次已删除")
         return super().form_valid(form)
+
+
+# ---- BlendUnloadTicket（拼配下槽单）----
+
+
+class BlendTicketListView(LoginRequiredMixin, ListView):
+    model = BlendUnloadTicket
+    template_name = "blends/list.html"
+    context_object_name = "tickets"
+
+    def get_queryset(self):
+        return (
+            BlendUnloadTicket.objects.select_related("openedBy")
+            .prefetch_related("lines__trough__garden")
+            .annotate(line_kg=Sum("lines__countKg"))
+        )
+
+    def get(self, request, *args, **kwargs):
+        self.object_list = self.get_queryset()
+        if _wants_htmx(request):
+            html = render_to_string(
+                "blends/_table.html",
+                {"tickets": self.object_list},
+                request=request,
+            )
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
+
+
+@login_required
+def blend_create(request):
+    if request.method == "POST":
+        ticket_form = BlendTicketForm(request.POST)
+        line_formset = BlendLineFormSet(request.POST)
+        ticket = validate_and_save_blend(ticket_form, line_formset, request.user)
+        if ticket is not None:
+            messages.success(request, "拼配下槽单已创建")
+            return redirect("blend_list")
+    else:
+        ticket_form = BlendTicketForm()
+        line_formset = BlendLineFormSet()
+    return render(
+        request,
+        "blends/form.html",
+        {"form": ticket_form, "line_formset": line_formset},
+    )
+
+
+class BlendTicketDetailView(LoginRequiredMixin, DetailView):
+    model = BlendUnloadTicket
+    template_name = "blends/detail.html"
+    context_object_name = "ticket"
+
+    def get_queryset(self):
+        return (
+            BlendUnloadTicket.objects.select_related("openedBy")
+            .prefetch_related("lines__trough__garden")
+        )
+
+
+@login_required
+def blend_close(request, pk):
+    ticket = get_object_or_404(
+        BlendUnloadTicket.objects.select_related("openedBy").prefetch_related(
+            "lines__trough__garden"
+        ),
+        pk=pk,
+    )
+    if not request.user.is_superuser:
+        raise PermissionDenied("仅主管可以结案拼配下槽单。")
+    if request.method == "POST":
+        if ticket.closedAt is None:
+            ticket.closedAt = timezone.now()
+            ticket.save(update_fields=["closedAt"])
+            messages.success(
+                request, "拼配下槽单已结案，相关槽位已禁止新建萎凋批次。"
+            )
+        return redirect("blend_detail", pk=pk)
+    return render(request, "blends/confirm_close.html", {"ticket": ticket})

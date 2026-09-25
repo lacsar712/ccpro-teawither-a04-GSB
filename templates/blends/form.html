@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}新建拼配下槽单{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>新建拼配下槽单</h1>
+  <a class="btn btn-secondary" href="{% url 'blend_list' %}">返回列表</a>
+</div>
+<div class="card">
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    <h3 style="margin:0 0 .25rem">单头</h3>
+    {% for field in form %}
+    <div class="form-row">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {{ field.errors }}
+    </div>
+    {% endfor %}
+
+    <h3 style="margin:1rem 0 .25rem">下槽明细（仅可选择「可下槽」槽位）</h3>
+    {{ line_formset.management_form }}
+    {{ line_formset.non_form_errors }}
+    <table class="data">
+      <thead>
+        <tr><th style="width:60%">槽位</th><th>计入千克</th></tr>
+      </thead>
+      <tbody>
+      {% for line_form in line_formset %}
+        <tr>
+          <td>{{ line_form.trough }}{{ line_form.trough.errors }}</td>
+          <td>{{ line_form.countKg }}{{ line_form.countKg.errors }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted">
+      规则：每个槽位开单时必须已是「可下槽」；同一槽未结案时不能再挂别的未结案单；
+      明细计入千克之和必须等于出库千克，误差为 0，否则拒绝开单。
+    </p>
+    {{ form.non_field_errors }}
+    <button class="btn" type="submit">保存并开单</button>
+  </form>
+</div>
+{% endblock %}
