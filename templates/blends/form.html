@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}新建拼配下槽单{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>新建拼配下槽单</h1>
+  <a class="btn btn-secondary" href="{% url 'blend_list' %}">返回列表</a>
+</div>
+<div class="card">
+  <form method="post" class="form-grid">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="form-row">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {{ field.errors }}
+    </div>
+    {% endfor %}
+    {{ form.non_field_errors }}
+
+    <h2 style="margin:0.5rem 0 0">下槽明细</h2>
+    <p class="muted" style="margin:0">
+      每行选择一个「可下槽」槽位并填写计入千克；各行合计须与出库千克完全一致（误差 0）。
+      同一槽位在未结案前不可再入其他未结案单。
+    </p>
+    {{ formset.management_form }}
+    {{ formset.non_form_errors }}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>槽位</th>
+          <th>计入千克</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line_form in formset %}
+        <tr>
+          <td>
+            {{ line_form.trough }}
+            {{ line_form.trough.errors }}
+          </td>
+          <td>
+            {{ line_form.countedKg }}
+            {{ line_form.countedKg.errors }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <button class="btn" type="submit">保存</button>
+  </form>
+</div>
+{% endblock %}

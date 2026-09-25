@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -109,3 +110,68 @@ class WitherBatch(models.Model):
 
     def __str__(self):
         return f"{self.trough} @ {self.startedAt:%Y-%m-%d %H:%M}"
+
+
+class BlendTicket(models.Model):
+    """拼配下槽单单头：出库日、目标品种、出库千克、开单人、结案时刻。"""
+
+    unloadDate = models.DateField("出库日")
+    targetCultivar = models.CharField("目标品种名", max_length=80)
+    unloadKg = models.DecimalField("出库千克", max_digits=10, decimal_places=2)
+    createdBy = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="blend_tickets",
+        verbose_name="开单人",
+    )
+    createdAt = models.DateTimeField("开单时刻", auto_now_add=True)
+    closedAt = models.DateTimeField("结案时刻", null=True, blank=True)
+
+    class Meta:
+        ordering = ["-id"]
+        verbose_name = "拼配下槽单"
+        verbose_name_plural = "拼配下槽单"
+
+    def __str__(self):
+        return f"拼配下槽单#{self.pk}（{self.targetCultivar} {self.unloadKg}kg）"
+
+    @property
+    def is_closed(self):
+        return self.closedAt is not None
+
+    def lines_total(self):
+        from django.db.models import Sum
+
+        return self.lines.aggregate(total=Sum("countedKg"))["total"]
+
+
+class BlendTicketLine(models.Model):
+    """拼配下槽单明细行：所属下槽单、槽位、计入千克。"""
+
+    ticket = models.ForeignKey(
+        BlendTicket,
+        on_delete=models.CASCADE,
+        related_name="lines",
+        verbose_name="所属下槽单",
+    )
+    trough = models.ForeignKey(
+        Trough,
+        on_delete=models.PROTECT,
+        related_name="blend_lines",
+        verbose_name="槽位",
+    )
+    countedKg = models.DecimalField("计入千克", max_digits=10, decimal_places=2)
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "拼配下槽明细"
+        verbose_name_plural = "拼配下槽明细"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["ticket", "trough"],
+                name="uniq_trough_per_blend_ticket",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.ticket_id}:{self.trough} {self.countedKg}kg"

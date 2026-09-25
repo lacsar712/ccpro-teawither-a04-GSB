@@ -1,19 +1,30 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db import transaction
+from django.db.models import Sum
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
+from django.utils import timezone
+from django.views import View
 from django.views.generic import (
     CreateView,
     DeleteView,
+    DetailView,
     ListView,
     UpdateView,
 )
 
-from .forms import GardenForm, TroughForm, WitherBatchForm
-from .models import Garden, Trough, WitherBatch
+from .forms import (
+    BlendLineFormSet,
+    BlendTicketForm,
+    GardenForm,
+    TroughForm,
+    WitherBatchForm,
+)
+from .models import BlendTicket, Garden, Trough, WitherBatch
 
 
 def _wants_htmx(request):
@@ -32,6 +43,9 @@ def home(request):
         ).count(),
         "loading_count": Trough.objects.filter(
             status=Trough.STATUS_LOADING
+        ).count(),
+        "open_blend_count": BlendTicket.objects.filter(
+            closedAt__isnull=True
         ).count(),
     }
     return render(request, "home.html", context)
@@ -200,3 +214,103 @@ class BatchDeleteView(LoginRequiredMixin, DeleteView):
     def form_valid(self, form):
         messages.success(self.request, "萎凋批次已删除")
         return super().form_valid(form)
+
+
+# ---- BlendTicket（拼配下槽单） ----
+
+
+class BlendTicketListView(LoginRequiredMixin, ListView):
+    model = BlendTicket
+    template_name = "blends/list.html"
+    context_object_name = "tickets"
+
+    def get_queryset(self):
+        return (
+            BlendTicket.objects.select_related("createdBy")
+            .annotate(line_total=Sum("lines__countedKg"))
+            .all()
+        )
+
+    def get(self, request, *args, **kwargs):
+        self.object_list = self.get_queryset()
+        if _wants_htmx(request):
+            html = render_to_string(
+                "blends/_table.html",
+                {"tickets": self.object_list},
+                request=request,
+            )
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
+
+
+class BlendTicketCreateView(LoginRequiredMixin, CreateView):
+    model = BlendTicket
+    form_class = BlendTicketForm
+    template_name = "blends/form.html"
+    success_url = reverse_lazy("blend_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if "formset" not in context:
+            context["formset"] = BlendLineFormSet(
+                self.request.POST or None,
+                instance=self.object or BlendTicket(),
+            )
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = None
+        form = self.get_form()
+        formset = BlendLineFormSet(request.POST)
+        if form.is_valid():
+            form.instance.createdBy = request.user
+            # 让明细校验能读到单头的出库千克
+            formset.instance = form.instance
+            if formset.is_valid():
+                return self.forms_valid(form, formset)
+        return self.render_to_response(
+            self.get_context_data(form=form, formset=formset)
+        )
+
+    def forms_valid(self, form, formset):
+        with transaction.atomic():
+            self.object = form.save()
+            formset.instance = self.object
+            formset.save()
+        messages.success(self.request, "拼配下槽单已创建")
+        return redirect(self.success_url)
+
+
+class BlendTicketDetailView(LoginRequiredMixin, DetailView):
+    model = BlendTicket
+    template_name = "blends/detail.html"
+    context_object_name = "ticket"
+
+    def get_queryset(self):
+        return BlendTicket.objects.select_related("createdBy").prefetch_related(
+            "lines__trough__garden"
+        )
+
+
+class BlendTicketCloseView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """结案仅主管（is_staff）；结案后相关槽位不得再新建萎凋批次。"""
+
+    def test_func(self):
+        return self.request.user.is_staff
+
+    def get(self, request, pk):
+        ticket = get_object_or_404(BlendTicket, pk=pk)
+        return render(request, "blends/confirm_close.html", {"ticket": ticket})
+
+    def post(self, request, pk):
+        ticket = get_object_or_404(BlendTicket, pk=pk)
+        if ticket.is_closed:
+            messages.info(request, f"拼配下槽单#{ticket.pk} 已是结案状态。")
+        else:
+            ticket.closedAt = timezone.now()
+            ticket.save(update_fields=["closedAt"])
+            messages.success(
+                request,
+                f"拼配下槽单#{ticket.pk} 已结案，相关槽位不得再新建萎凋批次。",
+            )
+        return redirect("blend_list")

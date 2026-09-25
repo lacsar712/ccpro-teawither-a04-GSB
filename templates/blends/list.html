@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}拼配下槽单{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>拼配下槽单</h1>
+  <div class="actions">
+    <button class="btn btn-secondary btn-sm"
+            hx-get="{% url 'blend_list' %}"
+            hx-target="#blend-table"
+            hx-swap="innerHTML">刷新列表</button>
+    <a class="btn" href="{% url 'blend_create' %}">新建拼配下槽单</a>
+  </div>
+</div>
+<div class="card" id="blend-table">
+  {% include "blends/_table.html" %}
+</div>
+<p class="muted" style="margin-top:1rem">规则提示：开单时每个明细槽必须已是「可下槽」；计入千克合计须与出库千克完全一致（误差 0）；结案仅主管可操作，结案后相关槽位不得再新建萎凋批次。</p>
+{% endblock %}

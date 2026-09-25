@@ -11,6 +11,7 @@
   <div class="stat"><div class="num">{{ loading_count }}</div><div class="label">装叶中</div></div>
   <div class="stat"><div class="num">{{ withering_count }}</div><div class="label">萎凋中</div></div>
   <div class="stat"><div class="num">{{ ready_count }}</div><div class="label">可下槽</div></div>
+  <div class="stat"><div class="num">{{ open_blend_count }}</div><div class="label">未结案拼配单</div></div>
 </div>
-<p class="muted" style="margin-top:1.25rem">规则提示：槽位设为「可下槽」时，最新批次实测含水率须已填写且不超过 40%。</p>
+<p class="muted" style="margin-top:1.25rem">规则提示：槽位设为「可下槽」时，最新批次实测含水率须已填写且不超过 40%。拼配下槽单开单时明细槽须为可下槽，且计入千克合计须等于出库千克（误差 0）；结案仅主管可操作，结案后相关槽位不得再新建萎凋批次。</p>
 {% endblock %}

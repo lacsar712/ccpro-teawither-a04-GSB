@@ -40,4 +40,20 @@ urlpatterns = [
         views.BatchDeleteView.as_view(),
         name="batch_delete",
     ),
+    path("blends/", views.BlendTicketListView.as_view(), name="blend_list"),
+    path(
+        "blends/new/",
+        views.BlendTicketCreateView.as_view(),
+        name="blend_create",
+    ),
+    path(
+        "blends/<int:pk>/",
+        views.BlendTicketDetailView.as_view(),
+        name="blend_detail",
+    ),
+    path(
+        "blends/<int:pk>/close/",
+        views.BlendTicketCloseView.as_view(),
+        name="blend_close",
+    ),
 ]

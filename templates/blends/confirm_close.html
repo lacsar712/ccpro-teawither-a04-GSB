@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}结案拼配下槽单{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>结案拼配下槽单 #{{ ticket.pk }}</h1>
+</div>
+<div class="card">
+  {% if ticket.is_closed %}
+  <p>该单已于 {{ ticket.closedAt|date:"Y-m-d H:i" }} 结案。</p>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{% url 'blend_list' %}">返回列表</a>
+  </div>
+  {% else %}
+  <p>确认结案「{{ ticket }}」？</p>
+  <p class="muted">结案后，本单相关槽位不得再新建萎凋批次；结案操作仅主管可执行。</p>
+  <form method="post" class="actions">
+    {% csrf_token %}
+    <button class="btn btn-danger" type="submit">确认结案</button>
+    <a class="btn btn-secondary" href="{% url 'blend_detail' ticket.pk %}">取消</a>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

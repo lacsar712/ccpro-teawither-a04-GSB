@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}拼配下槽单#{{ ticket.pk }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>拼配下槽单 #{{ ticket.pk }}</h1>
+  <div class="actions">
+    {% if not ticket.is_closed and user.is_staff %}
+    <a class="btn" href="{% url 'blend_close' ticket.pk %}">结案</a>
+    {% endif %}
+    <a class="btn btn-secondary" href="{% url 'blend_list' %}">返回列表</a>
+  </div>
+</div>
+<div class="card">
+  <table class="data">
+    <tbody>
+      <tr><th>出库日</th><td>{{ ticket.unloadDate|date:"Y-m-d" }}</td></tr>
+      <tr><th>目标品种名</th><td>{{ ticket.targetCultivar }}</td></tr>
+      <tr><th>出库千克</th><td>{{ ticket.unloadKg }}</td></tr>
+      <tr><th>开单人</th><td>{{ ticket.createdBy.username }}</td></tr>
+      <tr><th>开单时刻</th><td>{{ ticket.createdAt|date:"Y-m-d H:i" }}</td></tr>
+      <tr>
+        <th>状态</th>
+        <td>
+          {% if ticket.is_closed %}
+          <span class="badge badge-closed">已结案</span>（{{ ticket.closedAt|date:"Y-m-d H:i" }}）
+          {% else %}
+          <span class="badge badge-open">未结案</span>
+          {% endif %}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="card">
+  <h2 style="margin-top:0">下槽明细</h2>
+  {% if ticket.lines.all %}
+  <table class="data">
+    <thead>
+      <tr>
+        <th>茶园</th>
+        <th>槽位编号</th>
+        <th>品种</th>
+        <th>计入千克</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in ticket.lines.all %}
+      <tr>
+        <td>{{ line.trough.garden.name }}</td>
+        <td>{{ line.trough.troughCode }}</td>
+        <td>{{ line.trough.cultivar }}</td>
+        <td>{{ line.countedKg }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">暂无明细行。</p>
+  {% endif %}
+</div>
+{% if ticket.is_closed %}
+<p class="muted">该单已结案：相关槽位不得再新建萎凋批次。</p>
+{% endif %}
+{% endblock %}

@@ -216,6 +216,16 @@ table.data tr:hover td {
   color: #004085;
 }
 
+.badge-open {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.badge-closed {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
 .form-grid {
   display: grid;
   gap: 0.85rem;

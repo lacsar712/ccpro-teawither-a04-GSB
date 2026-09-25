@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Garden, Trough, WitherBatch
+from .models import BlendTicket, BlendTicketLine, Garden, Trough, WitherBatch
 
 
 @admin.register(Garden)
@@ -27,3 +27,27 @@ class WitherBatchAdmin(admin.ModelAdmin):
         "rollGrade",
     )
     list_filter = ("rollGrade",)
+
+
+class BlendTicketLineInline(admin.TabularInline):
+    model = BlendTicketLine
+    extra = 0
+
+
+@admin.register(BlendTicket)
+class BlendTicketAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "unloadDate",
+        "targetCultivar",
+        "unloadKg",
+        "createdBy",
+        "closedAt",
+    )
+    list_filter = ("closedAt",)
+    inlines = [BlendTicketLineInline]
+
+
+@admin.register(BlendTicketLine)
+class BlendTicketLineAdmin(admin.ModelAdmin):
+    list_display = ("id", "ticket", "trough", "countedKg")

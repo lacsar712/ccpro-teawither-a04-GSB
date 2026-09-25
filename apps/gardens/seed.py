@@ -92,3 +92,21 @@ def ensure_seed_data():
     )
     t4.status = Trough.STATUS_READY
     t4.save()
+
+    # 第二个可下槽槽位：与 B-02 一起保证「两槽可拼」
+    t5 = Trough.objects.create(
+        garden=g1,
+        troughCode="A-03",
+        cultivar="福鼎大白",
+        loadKg=Decimal("60.00"),
+        status=Trough.STATUS_WITHERING,
+    )
+    WitherBatch.objects.create(
+        trough=t5,
+        startedAt=now - timezone.timedelta(hours=20),
+        targetMoisture=Decimal("36.00"),
+        actualMoisture=Decimal("35.20"),
+        rollGrade="一级",
+    )
+    t5.status = Trough.STATUS_READY
+    t5.save()
